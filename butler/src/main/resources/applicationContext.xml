@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:cache="http://www.springframework.org/schema/cache" xmlns:c="http://www.springframework.org/schema/c"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+						http://www.springframework.org/schema/beans/spring-beans.xsd 
+						http://www.springframework.org/schema/context 
+						http://www.springframework.org/schema/context/spring-context.xsd 
+						http://www.springframework.org/schema/aop 
+						http://www.springframework.org/schema/aop/spring-aop.xsd 
+						http://www.springframework.org/schema/tx 
+						http://www.springframework.org/schema/tx/spring-tx.xsd 
+						http://www.springframework.org/schema/cache 
+						http://www.springframework.org/schema/cache/spring-cache-3.2.xsd">
+						
+	<!-- 配置需要交给spring扫描管理的包,一般是包括整个项目的java文件的父包（由context提供） -->
+	<context:component-scan base-package="org.system,org.service.task" />
+	
+	<!-- 属性文件读入,用于加密数据库配置文件 -->
+	<bean id="propertyConfigurer" class="org.system.encrypt.DBConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:conf.properties</value>
+			</list>
+		</property>
+	</bean>
+	
+	<!-- 配置需要交给spring扫描管理的文件,一般是项目的配置文件（由context提供） -->
+	<context:property-placeholder location="classpath:conf.properties" />
+	
+	<!-- 配置数据源 -->
+	<bean name="dataSource" class="com.alibaba.druid.pool.DruidDataSource" destroy-method="close">
+		<!-- 基本配置 -->
+		<property name="driverClassName" value="${db.driverClassName}" />
+		<property name="url" value="${db.url}" />
+		<property name="username" value="${db.user}" />
+		<property name="password" value="${db.password}" />
+		<!-- 初始化时建立物理连接的个数 -->
+		<property name="initialSize" value="${db.initialSize}" />
+		<!-- 最小连接池数 -->
+		<property name="minIdle" value="${db.minIdle}" />
+		<!-- 最大连接池数量 -->
+		<property name="maxActive" value="${db.maxActive}" />
+		<!-- 配置获取连接等待超时的时间 -->
+		<property name="maxWait" value="${db.maxWait}" />
+	</bean>
+
+	<!-- 配置sqlSessionFactory(由mybatis-spring.jar提供支持) -->
+	<bean name="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<!-- 配置数据源 -->
+		<property name="dataSource" ref="dataSource" />
+		<!-- 配置mybatis的默认选项 -->
+		<property name="configuration" ref="configuration" />
+		<!-- 配置拦截器用于Mybatis分页和总数查询，只实现Mysql -->
+		<property name="plugins" ref="PaginationInterceptor" />
+	</bean>
+	
+	<!-- mybatis默认选项配置 -->
+	<bean id="configuration"  class="org.apache.ibatis.session.Configuration">
+		<property name="callSettersOnNulls" value="true"/>
+	</bean>
+	
+	<!-- Mybatis分页拦截器 -->
+	<bean name="PaginationInterceptor" class="org.system.intercept.PaginationInterceptor" />
+	
+	<!-- Mapper接口所在包名，Spring会自动查找其下的Mapper -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="org.system.mapper..*" />
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory" />
+	</bean>
+	
+	<!-- 支持注解事务模式 -->
+	<tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true" />
+	
+	<!-- 事务管理 -->
+	<bean name="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+	
+	<!-- 配置声明式事务 -->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="insert*" propagation="REQUIRED" read-only="false" />
+			<tx:method name="delete*" propagation="REQUIRED" read-only="false" />
+			<tx:method name="update*" propagation="REQUIRED" read-only="false" />
+			<tx:method name="get*" propagation="SUPPORTS" />
+		</tx:attributes>
+	</tx:advice>
+	
+	<!-- 配置该声明式事务规则用于的切入点 步骤： 1.配置切入点 2.应用该声明式事务规则 -->
+	<aop:config proxy-target-class="true" expose-proxy="true">
+		<!-- 配置切入点 -->
+		<aop:pointcut id="transaction_pointcut" expression="execution(* org.system.service.impl..*.*(..))" />
+		<!-- 应用该声明式事务规则 -->
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="transaction_pointcut" />
+	</aop:config>
+	
+	<!-- 异常拦截器 -->
+	<bean id="exceptionHandler" class="org.system.exception.ExceptionResolver" />
+	
+	<!-- Spring上下文工具类 -->
+	<bean id="springContextUtil" class="org.service.utils.spring.SpringContextUtil" />
+</beans>

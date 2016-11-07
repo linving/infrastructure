@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.system.mapper.user.UserMapper">
+	<!-- 获取用户角色集合 标识值为value -->
+	<select id="getRoleList" resultType="map">
+		select r.`value` from role_user ru
+		right join role r on r.id=ru.role_id
+		where r.id=1
+		<if test="id !=null">
+			or ru.user_id=#{id}
+		</if>
+	</select>
+	
+	<!-- 获取用户权限集合 标识值为value -->
+	<select id="getPermissionList" resultType="map">
+		select ms.`value` from method_serource ms 
+		right join permission_method_serource pms on pms.method_serource_id=ms.id
+		right join permission p on p.id=pms.permission_id
+		right join role_permission rp on rp.permission_id=p.id
+		left join role r on r.id=rp.role_id
+		left join role_user ru on ru.role_id=r.id
+		where r.id=1
+		<if test="id !=null">
+			or ru.user_id=#{id}
+		</if>
+	</select>
+
+	<!-- 新增 -->
+	<insert id="insert" >
+		insert into user (name,password, phone) values 
+		(#{name,jdbcType=VARCHAR},#{password,jdbcType=VARCHAR},#{phone,jdbcType=VARCHAR})
+	</insert>
+
+	<!-- 查询是否重复 -->
+	<select id="selectIsExists" resultType="map">
+		select id, name, password, phone from user where phone=#{phone}
+	</select>
+
+	<!-- 查询单个 -->
+	<select id="selectOne"  resultType="map">
+		select id, name, password, phone from user where
+		phone=#{phone} and password=#{password}
+	</select>
+	
+	<!-- 查询列表 -->
+	<select id="selectAll" parameterType="org.system.entity.user.User"
+		resultType="map">
+		select id, name, password, phone from user
+		<where>
+			<if test="name !=null and name !=''">
+				name like CONCAT('%',#{name},'%' )
+			</if>
+			<if test="phone !=null and phone !=''">
+				phone like CONCAT('%',#{phone},'%' )
+			</if>
+		</where>
+	</select>
+</mapper>
